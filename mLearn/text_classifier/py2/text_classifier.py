@@ -14,10 +14,10 @@ import jieba
 
 import numpy as np
 from sklearn.feature_extraction.text import HashingVectorizer, TfidfVectorizer
-from sklearn.model_selection import train_test_split
+from sklearn.cross_validation import train_test_split
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.svm import SVC
-from sklearn.model_selection import GridSearchCV
+from sklearn.grid_search import GridSearchCV
 from sklearn.metrics import classification_report
 from sklearn.metrics import confusion_matrix
 from sklearn.externals import joblib
@@ -93,7 +93,7 @@ class TextClassifier:
         """
         labels = {}
         data_items = []
-        with open(path, "rt", encoding="utf-8") as f:
+        with open(path, "rb") as f:
             spamreader = csv.reader(f)
             for line in spamreader:
                 labels[line[4]] = labels[line[4]] + 1 if line[4] in labels else 1
@@ -109,9 +109,8 @@ class TextClassifier:
         # 过滤掉不满count数的记录
         # data_items_filiter = [x for x in data_items if labels[x[4]] >= count]
         data_items_filiter = filter(lambda x: labels[x[4]] >= count, data_items)
-        data_items_filiter_list = list(data_items_filiter)
-        log.info("train data count: {}".format(len(data_items_filiter_list)))
-        return data_items_filiter_list
+        log.info("train data count: {}".format(len(data_items_filiter)))
+        return data_items_filiter
 
     def word_tokenizer(self, word):
         """
@@ -126,7 +125,7 @@ class TextClassifier:
         :param path:
         :return:
         """
-        with open(self.stopword_path, 'r', encoding="utf-8") as f:
+        with open(self.stopword_path, 'r') as f:
             stopwords = set([w.strip() for w in f])
 
         return stopwords
@@ -183,11 +182,11 @@ class TextClassifier:
 
         training_inputs = [np.reshape(x, (X_vect, 1)) for x in X_train]
         training_results = self.foramt_labels(train_labels_vect)
-        training_data = list(zip(training_inputs, training_results))
+        training_data = zip(training_inputs, training_results)
 
         test_inputs = [np.reshape(x, (X_vect, 1)) for x in X_test]
         test_labels_vect = self.digitization_labels(test_labels_vect)
-        test_data = list(zip(test_inputs, test_labels_vect))
+        test_data = zip(test_inputs, test_labels_vect)
 
         return training_data, test_data, X_vect, labels_count
 
@@ -224,7 +223,6 @@ class TextClassifier:
     def make_data(self, train_index=1, label_index=-1, limit=None):
         """
         生成数据
-        :param limit:
         :param label_index:
         :param train_index:
         :return:
@@ -232,7 +230,7 @@ class TextClassifier:
         X_data = []
         y_data = []
         # data_lines = self.read_data_from_csv(self.csv_path)
-        data_lines = self.get_vivo_data("VIVO_clean_data.csv", 1500)
+        data_lines = self.get_vivo_data(VIVO_CLEARN_DATA, 1500)
         if limit and limit < len(data_lines):
             data_lines = data_lines[:limit]
         label_dict = {}
@@ -299,7 +297,7 @@ class TextClassifier:
                 labels_error[y] = labels_error[y] + 1 if y in labels_error else 1
 
         right_total = 0
-        for k, v in labels_right.items():
+        for k, v in labels_right.iteritems():
             total = v + labels_error[k] if k in labels_error else v
             log.info("{}:{}".format(k, (1.0 * v) / total))
             right_total += v
@@ -348,7 +346,7 @@ class TextClassifier:
 
 
 if __name__ == "__main__":
-    textClassifier = TextClassifier(features=30000)
+    textClassifier = TextClassifier()
     textClassifier.svm_text_classifier()
     # textClassifier.bayes_text_classifier()
     # textClassifier.read_data_from_csv_ex("error.csv")
