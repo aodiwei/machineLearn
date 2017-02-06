@@ -23,7 +23,6 @@ from sklearn.metrics import confusion_matrix
 from sklearn.externals import joblib
 from sklearn.preprocessing import label_binarize
 
-
 # CSV_PATH = r"F:\17MedPro\workspace\medstdy\api\python\data\features_20170121_014219.csv"
 CSV_PATH = r"bbgdata2.csv"
 STOPWORD_PATH = "stopword.txt"
@@ -93,7 +92,7 @@ class TextClassifier:
         """
         labels = {}
         data_items = []
-        with open(path, "rt") as f:
+        with open(path, "rt", encoding="utf-8") as f:
             spamreader = csv.reader(f)
             for line in spamreader:
                 labels[line[4]] = labels[line[4]] + 1 if line[4] in labels else 1
@@ -126,7 +125,7 @@ class TextClassifier:
         :param path:
         :return:
         """
-        with open(self.stopword_path, 'r') as f:
+        with open(self.stopword_path, 'r', encoding="utf-8") as f:
             stopwords = set([w.strip() for w in f])
 
         return stopwords
@@ -174,30 +173,26 @@ class TextClassifier:
         为神经网络训练make数据
         :return:
         """
-        X_train, X_test, y_train, y_test = self.make_data()
+        X_train, X_test, y_train, y_test = self.make_data(limit=100)
         X_vect = len(X_train[0])
-        # labels = y_train + y_test
         labels_set = list(set(y_train))
         labels_count = len(labels_set)
         train_labels_vect = label_binarize(y_train, classes=labels_set)
         test_labels_vect = label_binarize(y_test, classes=labels_set)
-        # training_data = zip(X_train, train_labels_vect)
-        # test_data = zip(X_test, test_labels_vect)
 
         training_inputs = [np.reshape(x, (X_vect, 1)) for x in X_train]
-        training_results = train_labels_vect #[vectorized_result(y) for y in tr_d[1]]
-        training_data = zip(training_inputs, training_results)
-        # validation_inputs = [np.reshape(x, (784, 1)) for x in va_d[0]]
-        # validation_data = zip(validation_inputs, va_d[1])
+        training_results = [[i] for inner in train_labels_vect for i in inner]
+        training_data = list(zip(training_inputs, training_results))
         test_inputs = [np.reshape(x, (X_vect, 1)) for x in X_test]
-        test_data = zip(test_inputs, test_labels_vect)
+        test_labels_vect = [[i] for inner in test_labels_vect for i in inner]
+        test_data = list(zip(test_inputs, test_labels_vect))
 
         return training_data, test_data, X_vect, labels_count
 
-
-    def make_data(self, train_index=1, label_index=-1):
+    def make_data(self, train_index=1, label_index=-1, limit=None):
         """
         生成数据
+        :param limit:
         :param label_index:
         :param train_index:
         :return:
@@ -205,7 +200,9 @@ class TextClassifier:
         X_data = []
         y_data = []
         # data_lines = self.read_data_from_csv(self.csv_path)
-        data_lines = self.get_vivo_data("VIVO_clean_data.csv", 2000)
+        data_lines = self.get_vivo_data("VIVO_clean_data.csv", 1500)
+        if limit and limit < len(data_lines):
+            data_lines = data_lines[:limit]
         label_dict = {}
         label_int = 0
         for line in data_lines:
@@ -236,7 +233,7 @@ class TextClassifier:
         :return:
         """
         X_train, X_test, y_train, y_test = self.make_data(train_index=train_index, label_index=label_index)
-        param_grid = {"C": [1e3, 5e3, 1e4, 1e5], "gamma": [0.0001, 0.005, 0.01, 0.1], }
+        param_grid = {"C": [1e3, 5e3, 1e4, 1e5], "gamma": [0.0001, 0.005, 0.01, 0.1],}
         # clf = GridSearchCV(SVC(kernel="linear"), param_grid=param_grid)
 
         # clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0,

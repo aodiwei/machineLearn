@@ -74,9 +74,10 @@ def load_data_wrapper():
     the training data and the validation / test data.  These formats
     turn out to be the most convenient for use in our neural network
     code."""
-    tr_d, va_d, te_d = load_data()
-    print(tr_d[0])
-    tr_d, va_d, te_d = tr_d[:10], va_d[:3], te_d[:5]
+    np.set_printoptions(threshold=5000)
+    tr_d0, va_d0, te_d0 = load_data()
+    print(tr_d0[0])
+    tr_d, va_d, te_d = tr_d0[:10], va_d0[:3], te_d0[:5]
     # with open("log0.log", "wb") as f:
     #     f.write("{}\n{}".format(tr_d[0], tr_d[1]))
 

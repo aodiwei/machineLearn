@@ -165,11 +165,11 @@ if __name__ == "__main__":
 
     textClassifier = text_classifier.TextClassifier()
     training_data, test_data, X_vect, labels_count = textClassifier.make_data_for_network()
-    print(type(training_data))
-    print(training_data[0][0].shape)
-    print(training_data[0][1].shape)
+    # print(type(training_data))
+    # print(training_data[0][0].shape)
+    # print(training_data[0][1].shape)
     net = Network([X_vect, 12, labels_count])
 
     # from network_g import Network as nw
     # net = nw([X_vect, 12, labels_count])
-    net.SGD(training_data, epochs=10, mini_batch_size=50, eta=0.01, test_data=test_data)
+    net.SGD(training_data, epochs=1000, mini_batch_size=20, eta=0.01, test_data=test_data)
