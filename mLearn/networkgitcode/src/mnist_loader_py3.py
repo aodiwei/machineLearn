@@ -75,9 +75,9 @@ def load_data_wrapper():
     va_d = []
     te_d = []
 
-    train_num = 1000
+    train_num = 100
     valid_num = 3
-    test_num = 100
+    test_num = 10
     tr_d.append(tr_d0[0][:train_num])
     tr_d.append(tr_d0[1][:train_num])
 

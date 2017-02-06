@@ -146,7 +146,8 @@ class Network(object):
             for mini_batch in mini_batches:
                 self.update_mini_batch(mini_batch, eta)
             if test_data:
-                print("Epoch {}: {} / {}".format(j, self.evaluate(test_data), n_test))
+                test_result = self.evaluate(test_data)
+                print("Epoch {}: {} / {} = {}".format(j, test_result, n_test, 1.0 * test_result / n_test))
             else:
                 print("Epoch {0} complete".format(j))
 
@@ -158,7 +159,6 @@ class Network(object):
         """
         test_results = [(np.argmax(self.feedforward(x)), y) for (x, y) in test_data]
         return sum(int(x == y) for (x, y) in test_results)
-
 
 if __name__ == "__main__":
     import text_classifier

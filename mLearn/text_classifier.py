@@ -173,7 +173,7 @@ class TextClassifier:
         为神经网络训练make数据
         :return:
         """
-        X_train, X_test, y_train, y_test = self.make_data(limit=100)
+        X_train, X_test, y_train, y_test = self.make_data(limit=10000)
         X_vect = len(X_train[0])
         labels_set = list(set(y_train))
         labels_count = len(labels_set)
@@ -181,13 +181,44 @@ class TextClassifier:
         test_labels_vect = label_binarize(y_test, classes=labels_set)
 
         training_inputs = [np.reshape(x, (X_vect, 1)) for x in X_train]
-        training_results = [[i] for inner in train_labels_vect for i in inner]
+        training_results = self.foramt_labels(train_labels_vect)
         training_data = list(zip(training_inputs, training_results))
+
         test_inputs = [np.reshape(x, (X_vect, 1)) for x in X_test]
-        test_labels_vect = [[i] for inner in test_labels_vect for i in inner]
+        test_labels_vect = self.digitization_labels(test_labels_vect)
         test_data = list(zip(test_inputs, test_labels_vect))
 
         return training_data, test_data, X_vect, labels_count
+
+    def foramt_labels(self, labels_vect):
+        """
+        为神经网络训练格式化标签
+        :param labels_vect:
+        :return:
+        """
+        labels = []
+        for i in labels_vect:
+            label = []
+            for j in i:
+                label.append([j])
+            labels.append(label)
+
+        return labels
+
+    def digitization_labels(self, labels_vect):
+        """
+        把标签格式为为数字
+        :param labels_vect:
+        :return:
+        """
+        labels = []
+        for i in labels_vect:
+            for index, j in enumerate(i):
+                if j == 1:
+                    labels.append(index)
+                    break
+
+        return labels
 
     def make_data(self, train_index=1, label_index=-1, limit=None):
         """
