@@ -24,13 +24,14 @@ from sklearn.externals import joblib
 from sklearn.preprocessing import label_binarize
 
 # CSV_PATH = r"F:\17MedPro\workspace\medstdy\api\python\data\features_20170121_014219.csv"
-CSV_PATH = r"bbgdata2.csv"
-STOPWORD_PATH = "stopword.txt"
+CSV_PATH = r"../data/bbgdata2.csv"
+STOPWORD_PATH = "../config/stopword.txt"
 FEATURES = 1000
 VECTORIZER = "TFIDF"  # HASH
+VIVO_CLEARN_DATA = r"../data/VIVO_clean_data.csv"
 
 train_name = time.time()
-logging.basicConfig(filename="./logs/text_classifier_{}.log".format(train_name), level=logging.INFO,
+logging.basicConfig(filename="../logs/text_classifier_{}.log".format(train_name), level=logging.INFO,
                     format='%(asctime)s %(message)s')
 
 log = logging.getLogger()
@@ -65,7 +66,7 @@ class TextClassifier:
             ids = []
             spamreader = csv.reader(f)
             count = 0
-            with open("VIVO_clean_data.csv", "wb") as fd:
+            with open(VIVO_CLEARN_DATA, "wb") as fd:
                 csv_writer = csv.writer(fd)
                 for line in spamreader:
                     count += 1
@@ -273,7 +274,7 @@ class TextClassifier:
         # tol=0.001, verbose=False)
 
         clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0, decision_function_shape=None, degree=3,
-                  gamma=0.0001, kernel='linear', max_iter=-1, probability=False, random_state=None, shrinking=True,
+                  gamma=0.0001, kernel='rbf', max_iter=-1, probability=False, random_state=None, shrinking=True,
                   tol=0.001, verbose=False)
 
         clf = clf.fit(X_train, y_train)
@@ -282,7 +283,7 @@ class TextClassifier:
         # log.info("best_params_:{}".format(clf.best_params_))
         # log.info("best_score_:{}".format(clf.best_score_))
 
-        joblib.dump(clf, './model_save/svm_model_{}.pkl'.format(train_name))
+        joblib.dump(clf, '../model_save/svm_model_{}.pkl'.format(train_name))
         # clf = joblib.load('filename.pkl')
         # train
         # clf.fit(X_train, y_train)
