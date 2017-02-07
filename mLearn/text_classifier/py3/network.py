@@ -146,10 +146,11 @@ class Network(object):
             for mini_batch in mini_batches:
                 self.update_mini_batch(mini_batch, eta)
             if test_data:
-                test_result = self.evaluate(test_data)
-                print("Epoch {}: {} / {} = {}".format(j, test_result, n_test, 1.0 * test_result / n_test))
+                test_result_count, test_results = self.evaluate(test_data)
+                print("Epoch {}: {} / {} = {}".format(j, test_result_count, n_test, 1.0 * test_result_count / n_test))
             else:
                 print("Epoch {0} complete".format(j))
+        return test_results
 
     def evaluate(self, test_data):
         """
@@ -158,13 +159,13 @@ class Network(object):
         :return:
         """
         test_results = [(np.argmax(self.feedforward(x)), y) for (x, y) in test_data]
-        return sum(int(x == y) for (x, y) in test_results)
+        return sum(int(x == y) for (x, y) in test_results), test_results
 
 if __name__ == "__main__":
     import text_classifier
-
-    textClassifier = text_classifier.TextClassifier()
+    textClassifier = text_classifier.TextClassifier(data_stream="MED")
     training_data, test_data, X_vect, labels_count = textClassifier.make_data_for_network()
-    net = Network([X_vect, 12, labels_count])
+    net = Network([X_vect, 20, labels_count])
 
-    net.SGD(training_data, epochs=1000, mini_batch_size=20, eta=0.1, test_data=test_data)
+    test_results = net.SGD(training_data, epochs=1000, mini_batch_size=20, eta=0.01, test_data=test_data)
+    textClassifier.result_report(test_results)

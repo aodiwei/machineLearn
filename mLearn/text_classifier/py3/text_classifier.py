@@ -23,12 +23,13 @@ from sklearn.metrics import confusion_matrix
 from sklearn.externals import joblib
 from sklearn.preprocessing import label_binarize
 
-# CSV_PATH = r"F:\17MedPro\workspace\medstdy\api\python\data\features_20170121_014219.csv"
-CSV_PATH = r"../data/bbgdata2.csv"
+CSV_PATH = r"../data/features_20170113_185423.csv"
+# CSV_PATH = r"../data/bbgdata2.csv"
 STOPWORD_PATH = "../config/stopword.txt"
 FEATURES = 1000
 VECTORIZER = "TFIDF"  # HASH
 VIVO_CLEARN_DATA = r"../data/VIVO_clean_data.csv"
+DATA_STREAM = "MED"  # VIVO
 
 train_name = time.time()
 logging.basicConfig(filename="../logs/text_classifier_{}.log".format(train_name), level=logging.INFO,
@@ -40,11 +41,21 @@ log = logging.getLogger()
 # lines = np.loadtxt("error.csv", delimiter=',', dtype='str', skiprows=0)
 
 class TextClassifier:
-    def __init__(self, csv_path=CSV_PATH, stopword_path=STOPWORD_PATH, features=FEATURES, vect=VECTORIZER):
+    def __init__(self, csv_path=CSV_PATH, stopword_path=STOPWORD_PATH, features=FEATURES, vect=VECTORIZER, data_stream=DATA_STREAM):
         self.csv_path = csv_path
         self.stopword_path = stopword_path
         self.features = features
         self.vect = vect
+        self.data_stream = data_stream
+
+    def read_data_from_csv_de(self, path):
+        """
+        从csv文件里读取数据
+        :param path:
+        :return:
+        """
+        lines = np.loadtxt(path, delimiter=',', dtype='str', skiprows=1)
+        return lines
 
     def read_data_from_csv(self, path):
         """
@@ -52,7 +63,12 @@ class TextClassifier:
         :param path:
         :return:
         """
-        lines = np.loadtxt(path, delimiter=',', dtype='str', skiprows=1)
+        lines = []
+        with open(path, "rt", encoding="utf-8") as f:
+            spamreader = csv.reader(f)
+            for line in spamreader:
+                lines.append(line)
+
         return lines
 
     def clean_vivo_data(self, path):
@@ -169,12 +185,13 @@ class TextClassifier:
         tfidf_words_data = tfidf_v.fit_transform(words).toarray()
         return tfidf_words_data
 
-    def make_data_for_network(self):
+    def make_data_for_network(self, limit=None):
         """
         为神经网络训练make数据
+        :param limit:
         :return:
         """
-        X_train, X_test, y_train, y_test = self.make_data(limit=10000)
+        X_train, X_test, y_train, y_test = self.make_data(limit=limit)
         X_vect = len(X_train[0])
         labels_set = list(set(y_train))
         labels_count = len(labels_set)
@@ -231,12 +248,15 @@ class TextClassifier:
         """
         X_data = []
         y_data = []
-        # data_lines = self.read_data_from_csv(self.csv_path)
-        data_lines = self.get_vivo_data(VIVO_CLEARN_DATA, 1500)
+        if self.data_stream == "MED":
+            data_lines = self.read_data_from_csv(self.csv_path)
+        elif self.data_stream == "VIVO":
+            data_lines = self.get_vivo_data(VIVO_CLEARN_DATA, 1500)
+        else:
+            raise TypeError("nonsupport stream")
         if limit and limit < len(data_lines):
             data_lines = data_lines[:limit]
-        label_dict = {}
-        label_int = 0
+
         for line in data_lines:
             if isinstance(train_index, (list, tuple)):
                 train_text = ""
@@ -246,10 +266,6 @@ class TextClassifier:
             else:
                 X_data.append(line[train_index])
             y_data.append(line[label_index])
-            # if line[label_index] not in label_dict:
-            # label_dict[line[label_index]] = label_int
-            # label_int += 1
-            # y_data.append(label_dict[line[label_index]])
 
         X_data = self.vectorize(X_data)
         # with open("label.txt", "w") as f:
@@ -265,17 +281,24 @@ class TextClassifier:
         :return:
         """
         X_train, X_test, y_train, y_test = self.make_data(train_index=train_index, label_index=label_index)
-        param_grid = {"C": [1e3, 5e3, 1e4, 1e5], "gamma": [0.0001, 0.005, 0.01, 0.1],}
-        # clf = GridSearchCV(SVC(kernel="linear"), param_grid=param_grid)
-
-        # clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0,
-        # decision_function_shape=None, degree=3, gamma=0.0001, kernel='linear',
-        # max_iter=-1, probability=False, random_state=None, shrinking=True,
-        # tol=0.001, verbose=False)
-
-        clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0, decision_function_shape=None, degree=3,
-                  gamma=0.0001, kernel='rbf', max_iter=-1, probability=False, random_state=None, shrinking=True,
-                  tol=0.001, verbose=False)
+        param_grid = {
+            "C": [1e3, 5e3, 1e4, 5e5, 1e5],
+            "gamma": [0.0001, 0.001, 0.005, 0.01, 0.1],
+        }
+        # clf = GridSearchCV(SVC(kernel="rbf"), param_grid=param_grid)
+        if self.data_stream == "MED":
+            # medical
+            clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0,
+                      decision_function_shape=None, degree=3, gamma=0.1, kernel='rbf',
+                      max_iter=-1, probability=False, random_state=None, shrinking=True,
+                      tol=0.001, verbose=False)
+        elif self.data_stream == "VIVO":
+            # VIVO
+            clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0, decision_function_shape=None, degree=3,
+                      gamma=0.0001, kernel='rbf', max_iter=-1, probability=False, random_state=None, shrinking=True,
+                      tol=0.001, verbose=False)
+        else:
+            raise TypeError("nonsupport stream")
 
         clf = clf.fit(X_train, y_train)
 
@@ -310,7 +333,8 @@ class TextClassifier:
         log.info(classification_report(y_test, y_pred))
 
         # log.info("finish")
-        # log.info(confusion_matrix(y_test, y_pred))
+        log.info(confusion_matrix(y_test, y_pred))
+
         # log.info("=" * 20 + "svm classifier end" + "=" * 20)
 
     def bayes_text_classifier(self, train_index=1, label_index=-1):
@@ -345,6 +369,20 @@ class TextClassifier:
         msg = "=" * 20 + "bayes classifier" + "=" * 20
         print(classification_report(y_test, y_pred))
         print(confusion_matrix(y_test, y_pred))
+
+    def result_report(self, result):
+        """
+
+        :param result:
+        :return:
+        """
+        y_test = []
+        y_pred = []
+        for re in result:
+            y_pred.append(re[0])
+            y_test.append(re[1])
+        log.info(classification_report(y_test, y_pred))
+        log.info(confusion_matrix(y_test, y_pred))
 
 
 if __name__ == "__main__":
