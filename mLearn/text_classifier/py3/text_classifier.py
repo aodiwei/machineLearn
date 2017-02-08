@@ -208,6 +208,28 @@ class TextClassifier:
 
         return training_data, test_data, X_vect, labels_count
 
+    def make_data_for_tensorflow(self, limit=None):
+        """
+
+        :param limit:
+        :return:
+        """
+        X_train, X_test, y_train, y_test = self.make_data(limit=limit)
+        X_vect = len(X_train[0])
+        labels_set = list(set(y_train))
+        labels_count = len(labels_set)
+        train_labels_vect = label_binarize(y_train, classes=labels_set)
+        test_labels_vect = label_binarize(y_test, classes=labels_set)
+
+        # training_inputs = [np.reshape(x, (X_vect, 1)) for x in X_train]
+
+        # test_inputs = [np.reshape(x, (X_vect, 1)) for x in X_test]
+
+        training_data = (X_train, train_labels_vect)
+        test_data = (X_test, test_labels_vect)
+
+        return training_data, test_data, X_vect, labels_count
+
     def foramt_labels(self, labels_vect):
         """
         为神经网络训练格式化标签
