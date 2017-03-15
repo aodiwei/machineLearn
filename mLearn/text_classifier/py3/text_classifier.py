@@ -29,7 +29,7 @@ STOPWORD_PATH = "../config/stopword.txt"
 FEATURES = 1000
 VECTORIZER = "TFIDF"  # HASH
 VIVO_CLEARN_DATA = r"../data/VIVO_clean_data.csv"
-DATA_STREAM = "MED"  # VIVO
+DATA_STREAM = "VIVO"  # MED/VIVO
 
 train_name = time.time()
 logging.basicConfig(filename="../logs/text_classifier_{}.log".format(train_name), level=logging.INFO,
@@ -110,8 +110,13 @@ class TextClassifier:
         labels = {}
         data_items = []
         with open(path, "rt", encoding="utf-8") as f:
+            first = 0
             spamreader = csv.reader(f)
             for line in spamreader:
+                # 忽略第一行title
+                if first is 0:
+                    first = False
+                    continue
                 labels[line[4]] = labels[line[4]] + 1 if line[4] in labels else 1
                 if labels[line[4]] > count:
                     continue
@@ -183,6 +188,9 @@ class TextClassifier:
         stopwords = self.stopwords()
         tfidf_v = TfidfVectorizer(tokenizer=self.word_tokenizer, stop_words=stopwords)
         tfidf_words_data = tfidf_v.fit_transform(words).toarray()
+        vocabulary = tfidf_v.vocabulary_
+        joblib.dump(vocabulary, '../model_save/vocabulary.pkl')
+
         return tfidf_words_data
 
     def make_data_for_network(self, limit=None):
@@ -288,10 +296,9 @@ class TextClassifier:
             else:
                 X_data.append(line[train_index])
             y_data.append(line[label_index])
+        self.cache = X_data
 
         X_data = self.vectorize(X_data)
-        # with open("label.txt", "w") as f:
-        # json.dump(label_dict, f)
         X_train, X_test, y_train, y_test = train_test_split(np.asarray(X_data), np.asarray(y_data), test_size=0.25)
         return X_train, X_test, y_train, y_test
 
@@ -308,14 +315,13 @@ class TextClassifier:
             "gamma": [0.0001, 0.001, 0.005, 0.01, 0.1],
         }
         # clf = GridSearchCV(SVC(kernel="rbf"), param_grid=param_grid)
-        if self.data_stream == "MED":
-            # medical
+        if self.data_stream == "MED":  # medical
+
             clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0,
                       decision_function_shape=None, degree=3, gamma=0.1, kernel='rbf',
                       max_iter=-1, probability=False, random_state=None, shrinking=True,
                       tol=0.001, verbose=False)
-        elif self.data_stream == "VIVO":
-            # VIVO
+        elif self.data_stream == "VIVO":  # VIVO
             clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0, decision_function_shape=None, degree=3,
                       gamma=0.0001, kernel='rbf', max_iter=-1, probability=False, random_state=None, shrinking=True,
                       tol=0.001, verbose=False)
@@ -328,13 +334,17 @@ class TextClassifier:
         # log.info("best_params_:{}".format(clf.best_params_))
         # log.info("best_score_:{}".format(clf.best_score_))
 
-        joblib.dump(clf, '../model_save/svm_model_{}.pkl'.format(train_name))
-        # clf = joblib.load('filename.pkl')
-        # train
-        # clf.fit(X_train, y_train)
-
-        log.info("starting predict...")
+        joblib.dump(clf, '../model_save/svm_model.pkl')
         y_pred = clf.predict(X_test)
+        self.show_result(y_test, y_pred)
+
+    def show_result(self, y_test, y_pred):
+        """
+        展示结果
+        :param y_test:
+        :param y_pred:
+        :return:
+        """
         labels_right = {}
         labels_error = {}
         for index, y in enumerate(y_test):
@@ -355,9 +365,21 @@ class TextClassifier:
         log.info(classification_report(y_test, y_pred))
 
         # log.info("finish")
-        log.info(confusion_matrix(y_test, y_pred))
+        # log.info(confusion_matrix(y_test, y_pred))
 
-        # log.info("=" * 20 + "svm classifier end" + "=" * 20)
+    def pred_new_text(self, text):
+        """
+        分类新的文本
+        :param text:
+        :return:
+        """
+        clf = joblib.load('../model_save/svm_model.pkl')
+        vocabulary = joblib.load('../model_save/vocabulary.pkl')
+        tfidf_v = TfidfVectorizer(tokenizer=self.word_tokenizer, stop_words=self.stopwords(), vocabulary=vocabulary)
+        x = tfidf_v.fit_transform([text]).toarray()
+        y = clf.predict(x)
+
+        return y
 
     def bayes_text_classifier(self, train_index=1, label_index=-1):
         """
@@ -410,7 +432,6 @@ class TextClassifier:
 if __name__ == "__main__":
     textClassifier = TextClassifier()
     textClassifier.svm_text_classifier()
-    # textClassifier.bayes_text_classifier()
-    # textClassifier.read_data_from_csv_ex("error.csv")
-    # textClassifier.clean_vivo_data(CSV_PATH)
+    y = textClassifier.pred_new_text("网络信号太差网站游戏老打不开长期断网")
+    print(y)
     pass
