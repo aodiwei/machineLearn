@@ -9,7 +9,7 @@ __mtime__ = '2017/2/7'
 import tensorflow as tf
 import numpy as np
 import text_classifier
-from tensorflow_tool import tensorflowTool
+from layers import Layers
 
 textClassifier = text_classifier.TextClassifier(data_stream="VIVO")
 training_data, test_data, X_vect, labels_count = textClassifier.make_data_for_tensorflow()
@@ -19,10 +19,19 @@ y_ = tf.placeholder("float", shape=[None, labels_count])
 
 # W = tf.Variable(tf.zeros(shape=[X_vect, labels_count]))
 # b = tf.Variable(tf.zeros(shape=[labels_count]))
-tool = tensorflowTool()
-l1 = tool.add_layer(x, X_vect, 10, activation_function=tf.nn.relu)
-l2 = tool.add_layer(l1, 10, 15, activation_function=tf.nn.relu)
-prediction = tool.add_layer(l2, 15, labels_count, activation_function=tf.nn.softmax)
+layers = Layers()
+
+####################
+# l1 = tool.add_layer(x, X_vect, 30, activation_function=tf.nn.sigmoid)
+# # prediction = tool.add_layer(l1, 30, labels_count, activation_function=tf.nn.softmax)
+# l2 = tool.add_layer(l1, 30, 15, activation_function=tf.nn.sigmoid)
+# prediction = tool.add_layer(l2, 15, labels_count, activation_function=tf.nn.softmax)
+
+#############################
+l1 = layers.add_layer_with_drop(x, X_vect, 30, "layer1", activation_function=tf.nn.sigmoid)
+l2 = layers.add_layer_with_drop(l1, 30, 15, "layer2", activation_function=tf.nn.sigmoid)
+prediction = layers.add_layer_with_drop(l2, 15, labels_count, "layer3", activation_function=tf.nn.softmax)
+###########################
 
 
 sess = tf.InteractiveSession()
