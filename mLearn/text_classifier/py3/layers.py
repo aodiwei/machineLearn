@@ -51,27 +51,32 @@ class Layers:
 
         return outputs
 
-    def add_layer_with_tensorboard(self, inputs, in_size, out_size, activation_function=None):
+    def add_layer_with_tensorboard(self, inputs, in_size, out_size, layer_name, activation_function=None):
         """
         添加一层， 有tensorboard
+        :param layer_name:
         :param inputs:
         :param in_size:
         :param out_size:
         :param activation_function:
         :return:
         """
-        with tf.name_scope('layer'):
-            with tf.name_scope('weights'):
-                weights = tf.Variable(tf.random_normal([in_size, out_size]))
-            with tf.name_scope('biases'):
-                biases = tf.Variable(tf.zeros([1, out_size]) + 0.1)
-            with tf.name_scope('wx_plus_b'):
-                # wx_plus_b = tf.matmul(inputs, weights) + biases
+        with tf.name_scope('layer' + layer_name):
+            with tf.name_scope('weights' + layer_name):
+                weights = tf.Variable(tf.random_normal([in_size, out_size]), name="weights" + layer_name)
+            with tf.name_scope('biases' + layer_name):
+                biases = tf.Variable(tf.zeros([1, out_size]) + 0.1, name="biases" + layer_name)
+            with tf.name_scope('wx_plus_b' + layer_name):
                 wx_plus_b = tf.add(tf.matmul(inputs, weights), biases)
+
+            w_hist = tf.histogram_summary("weights" + layer_name, weights)
+            b_hist = tf.histogram_summary("biases" + layer_name, biases)
 
             if activation_function is None:
                 outputs = wx_plus_b
             else:
                 outputs = activation_function(wx_plus_b)
+
+            y_hist = tf.histogram_summary("y" + layer_name, outputs)
 
             return outputs
