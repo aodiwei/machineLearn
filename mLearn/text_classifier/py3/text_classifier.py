@@ -28,7 +28,7 @@ CSV_PATH = r"../data/features_20170113_185423.csv"
 STOPWORD_PATH = "../config/stopword.txt"
 FEATURES = 1000
 VECTORIZER = "TFIDF"  # HASH
-VIVO_CLEARN_DATA = r"../data/VIVO_clean_data.csv"
+VIVO_CLEARN_DATA = r"../data/sample0.csv"
 DATA_STREAM = "VIVO"  # MED/VIVO
 
 train_name = time.time()
@@ -100,10 +100,10 @@ class TextClassifier:
         # json.dump(lines, f)
         return lines
 
-    def get_vivo_data(self, path, count):
+    def get_data(self, path, single_label_count=180):
         """
         获取每个标签等量的数据
-        :param count:
+        :param single_label_count:
         :param path:
         :return:
         """
@@ -117,19 +117,19 @@ class TextClassifier:
                 if first is 0:
                     first = False
                     continue
-                labels[line[4]] = labels[line[4]] + 1 if line[4] in labels else 1
-                if labels[line[4]] > count:
-                    continue
-                else:
-                    data_items.append(line)
-        log.info("total data count: {}".format(len(data_items)))
-        log.info("total data label count: {}".format(len(labels)))
-        log.info("total data dict: {}".format(labels))
+                labels[line[-1]] = labels[line[-1]] + 1 if line[-1] in labels else 1
+                # if labels[line[-1]] > single_label_count:
+                #     continue
+                # else:
+                data_items.append(line)
+        # log.info("total data count: {}".format(len(data_items)))
+        # log.info("total data label count: {}".format(len(labels)))
+        # log.info("total data dict: {}".format(labels))
         # print("data dict: {}".format(labels))
 
         # 过滤掉不满count数的记录
         # data_items_filiter = [x for x in data_items if labels[x[4]] >= count]
-        data_items_filiter = filter(lambda x: labels[x[4]] >= count, data_items)
+        data_items_filiter = filter(lambda x: labels[x[-1]] >= single_label_count, data_items)
         data_items_filiter_list = list(data_items_filiter)
         log.info("train data count: {}".format(len(data_items_filiter_list)))
         return data_items_filiter_list
@@ -186,7 +186,7 @@ class TextClassifier:
         :return:
         """
         stopwords = self.stopwords()
-        tfidf_v = TfidfVectorizer(tokenizer=self.word_tokenizer, stop_words=stopwords)
+        tfidf_v = TfidfVectorizer(tokenizer=self.word_tokenizer, stop_words=stopwords, ngram_range=(2, 2))
         tfidf_words_data = tfidf_v.fit_transform(words).toarray()
         vocabulary = tfidf_v.vocabulary_
         joblib.dump(vocabulary, '../model_save/vocabulary.pkl')
@@ -216,13 +216,13 @@ class TextClassifier:
 
         return training_data, test_data, X_vect, labels_count
 
-    def make_data_for_tensorflow(self, limit=None):
+    def make_data_for_tensorflow(self, limit=None, single_label_count=500):
         """
 
         :param limit:
         :return:
         """
-        X_train, X_test, y_train, y_test = self.make_data(limit=limit)
+        X_train, X_test, y_train, y_test = self.make_data(limit=limit, single_label_count=single_label_count)
         X_vect = len(X_train[0])
         labels_set = list(set(y_train))
         labels_count = len(labels_set)
@@ -279,9 +279,9 @@ class TextClassifier:
         X_data = []
         y_data = []
         if self.data_stream == "MED":
-            data_lines = self.read_data_from_csv(self.csv_path)
+            data_lines = self.get_data(self.csv_path, single_label_count=40)
         elif self.data_stream == "VIVO":
-            data_lines = self.get_vivo_data(VIVO_CLEARN_DATA, 1500)
+            data_lines = self.get_data(VIVO_CLEARN_DATA, single_label_count=500)
         else:
             raise TypeError("nonsupport stream")
         if limit and limit < len(data_lines):
@@ -311,8 +311,8 @@ class TextClassifier:
         """
         X_train, X_test, y_train, y_test = self.make_data(train_index=train_index, label_index=label_index)
         param_grid = {
-            "C": [1e3, 5e3, 1e4, 5e5, 1e5],
-            "gamma": [0.0001, 0.001, 0.005, 0.01, 0.1],
+            "C": [1e2, 5e2, 1e3, 5e3, 1e4, 5e5, 1e5, 1e6],
+            "gamma": [0.0001, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5],
         }
         # clf = GridSearchCV(SVC(kernel="rbf"), param_grid=param_grid)
         if self.data_stream == "MED":  # medical
@@ -322,8 +322,16 @@ class TextClassifier:
                       max_iter=-1, probability=False, random_state=None, shrinking=True,
                       tol=0.001, verbose=False)
         elif self.data_stream == "VIVO":  # VIVO
-            clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0, decision_function_shape=None, degree=3,
-                      gamma=0.0001, kernel='rbf', max_iter=-1, probability=False, random_state=None, shrinking=True,
+            # clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0, decision_function_shape=None, degree=3,
+            #           gamma=0.0001, kernel='rbf', max_iter=-1, probability=False, random_state=None, shrinking=True,
+            #           tol=0.001, verbose=False)
+            # clf = SVC(C=5000.0, cache_size=200, class_weight=None, coef0=0.0,
+            #           decision_function_shape=None, degree=3, gamma=0.0001, kernel='rbf',
+            #           max_iter=-1, probability=False, random_state=None, shrinking=True,
+            #           tol=0.001, verbose=False)
+            clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0,
+                      decision_function_shape=None, degree=3, gamma=0.001, kernel='rbf',
+                      max_iter=-1, probability=False, random_state=None, shrinking=True,
                       tol=0.001, verbose=False)
         else:
             raise TypeError("nonsupport stream")
@@ -365,7 +373,7 @@ class TextClassifier:
         log.info(classification_report(y_test, y_pred))
 
         # log.info("finish")
-        # log.info(confusion_matrix(y_test, y_pred))
+        log.info(confusion_matrix(y_test, y_pred))
 
     def pred_new_text(self, text):
         """
@@ -432,6 +440,6 @@ class TextClassifier:
 if __name__ == "__main__":
     textClassifier = TextClassifier()
     textClassifier.svm_text_classifier()
-    y = textClassifier.pred_new_text("网络信号太差网站游戏老打不开长期断网")
+    y = textClassifier.pred_new_text("感觉X9plus电量不抗用。 感觉X9plus，电量不抗用啊。有没有什么方法测试一下电池抗不抗用")
     print(y)
     pass

@@ -24,7 +24,7 @@ class Layers:
 
         return outputs
 
-    def add_layer_with_drop(self, inputs, in_size, out_size, layer_name, activation_function=None, keep_prob=0.60):
+    def add_layer_with_drop(self, inputs, in_size, out_size, layer_name, activation_function=None, keep_prob=None):
         """
         添加一层
         :param layer_name:
@@ -36,11 +36,12 @@ class Layers:
         :return:
         """
         weights = tf.Variable(tf.random_normal([in_size, out_size]))
-        biases = tf.Variable(tf.zeros([1, out_size]) + 0.1)
+        biases = tf.Variable(tf.random_normal([1, out_size]) + 0.1)
         wx_plus_b = tf.matmul(inputs, weights) + biases
         # 在 Wx_plus_b 上drop掉一定比例
         # keep_prob 保持多少不被drop，在迭代时在 sess.run 中 feed
-        wx_plus_b = tf.nn.dropout(wx_plus_b, keep_prob)
+        if keep_prob is not None:
+            wx_plus_b = tf.nn.dropout(wx_plus_b, keep_prob)
 
         if activation_function is None:
             outputs = wx_plus_b
