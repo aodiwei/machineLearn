@@ -35,8 +35,8 @@ class TfTextClassifier:
 
         :return:
         """
-        textClassifier = text_classifier.TextClassifier(data_stream="VIVO")
-        self.training_data, self.test_data, self.X_vect, self.labels_count = textClassifier.make_data_for_tensorflow(single_label_count=500)
+        textClassifier = text_classifier.TextClassifier(data_stream="MED")
+        self.training_data, self.test_data, self.X_vect, self.labels_count = textClassifier.make_data_for_tensorflow()
         # self.x = tf.placeholder("float", shape=[None, X_vect])
         # self.y_ = tf.placeholder("float", shape=[None, labels_count])
         with tf.name_scope('inputs'):
@@ -143,8 +143,13 @@ class TfTextClassifier:
         l4 = self.layers.add_layer_with_drop(l3, 30, 15, "layer4", activation_function=tf.nn.sigmoid)
         prediction = self.layers.add_layer_with_drop(l4, 15, self.labels_count, "layer_prediction", activation_function=tf.nn.softmax)
 
+        saver = tf.train.Saver()
+
         sess = tf.InteractiveSession()
         sess.run(tf.global_variables_initializer())
+
+        save_path = saver.save(sess, '../model_save/tf_model.ckpt')
+
         cross_entropy = -tf.reduce_sum(self.y_ * tf.log(prediction))
         train_step = tf.train.GradientDescentOptimizer(0.001).minimize(cross_entropy)
 
@@ -157,8 +162,44 @@ class TfTextClassifier:
                 accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
                 print(i, accuracy.eval(feed_dict={self.x: self.test_data[0], self.y_: self.test_data[1]}))
 
+    def reload_model(self):
+        """
+        加载训练好的模型
+        :return:
+        """
+        l1 = self.layers.add_layer_with_drop(self.x, self.X_vect, 50, "layer1", activation_function=tf.nn.sigmoid)
+        l2 = self.layers.add_layer_with_drop(l1, 50, 40, "layer2", activation_function=tf.nn.sigmoid)
+        l3 = self.layers.add_layer_with_drop(l2, 40, 30, "layer3", activation_function=tf.nn.sigmoid)
+        l4 = self.layers.add_layer_with_drop(l3, 30, 15, "layer4", activation_function=tf.nn.sigmoid)
+        prediction = self.layers.add_layer_with_drop(l4, 15, self.labels_count, "layer_prediction", activation_function=tf.nn.softmax)
+
+        saver = tf.train.Saver()
+        sess = tf.InteractiveSession()
+        saver.restore(sess, '../model_save/tf_model.ckpt')
+
+        # cross_entropy = -tf.reduce_sum(self.y_ * tf.log(prediction))
+        # train_step = tf.train.GradientDescentOptimizer(0.001).minimize(cross_entropy)
+
+        correct_prediction = tf.equal(tf.argmax(prediction, 1), tf.argmax(self.y_, 1))
+        accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+        print(accuracy.eval(feed_dict={self.x: self.test_data[0], self.y_: self.test_data[1]}))
+
+        # batch = self.next_batch(self.mini_batch_size)
+        # for i in range(self.train_times):
+        #     train_step.run(feed_dict={self.x: batch[0], self.y_: batch[1]})
+        #     if i and i % 50 == 0:
+        #         batch = self.next_batch(self.mini_batch_size)
+        #         correct_prediction = tf.equal(tf.argmax(prediction, 1), tf.argmax(self.y_, 1))
+        #         accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+        #         print(i, accuracy.eval(feed_dict={self.x: self.test_data[0], self.y_: self.test_data[1]}))
+
+
+
+
+
 
 if __name__ == "__main__":
     tfTextClassifier = TfTextClassifier()
     # tfTextClassifier.train_with_tensorboard()
     tfTextClassifier.train()
+    # tfTextClassifier.reload_model()

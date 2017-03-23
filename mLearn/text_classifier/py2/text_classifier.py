@@ -23,12 +23,13 @@ from sklearn.metrics import confusion_matrix
 from sklearn.externals import joblib
 from sklearn.preprocessing import label_binarize
 
-# CSV_PATH = r"F:\17MedPro\workspace\medstdy\api\python\data\features_20170121_014219.csv"
-CSV_PATH = r"../data/bbgdata2.csv"
+CSV_PATH = r"../data/features_20170323_175026.csv"
+# CSV_PATH = r"../data/bbgdata2.csv"
 STOPWORD_PATH = "../config/stopword.txt"
 FEATURES = 1000
 VECTORIZER = "TFIDF"  # HASH
-VIVO_CLEARN_DATA = r"../data/VIVO_clean_data.csv"
+VIVO_CLEARN_DATA = r"../data/sample0.csv"
+DATA_STREAM = "MED"  # MED/VIVO
 
 train_name = time.time()
 logging.basicConfig(filename="../logs/text_classifier_{}.log".format(train_name), level=logging.INFO,
@@ -40,11 +41,21 @@ log = logging.getLogger()
 # lines = np.loadtxt("error.csv", delimiter=',', dtype='str', skiprows=0)
 
 class TextClassifier:
-    def __init__(self, csv_path=CSV_PATH, stopword_path=STOPWORD_PATH, features=FEATURES, vect=VECTORIZER):
+    def __init__(self, csv_path=CSV_PATH, stopword_path=STOPWORD_PATH, features=FEATURES, vect=VECTORIZER, data_stream=DATA_STREAM):
         self.csv_path = csv_path
         self.stopword_path = stopword_path
         self.features = features
         self.vect = vect
+        self.data_stream = data_stream
+
+    def read_data_from_csv_de(self, path):
+        """
+        从csv文件里读取数据
+        :param path:
+        :return:
+        """
+        lines = np.loadtxt(path, delimiter=',', dtype='str', skiprows=1)
+        return lines
 
     def read_data_from_csv(self, path):
         """
@@ -52,7 +63,12 @@ class TextClassifier:
         :param path:
         :return:
         """
-        lines = np.loadtxt(path, delimiter=',', dtype='str', skiprows=1)
+        lines = []
+        with open(path, "rt", encoding="utf-8") as f:
+            spamreader = csv.reader(f)
+            for line in spamreader:
+                lines.append(line)
+
         return lines
 
     def clean_vivo_data(self, path):
@@ -84,33 +100,39 @@ class TextClassifier:
         # json.dump(lines, f)
         return lines
 
-    def get_vivo_data(self, path, count):
+    def get_data(self, path, single_label_count=180):
         """
         获取每个标签等量的数据
-        :param count:
+        :param single_label_count:
         :param path:
         :return:
         """
         labels = {}
         data_items = []
         with open(path, "rb") as f:
+            first = 0
             spamreader = csv.reader(f)
             for line in spamreader:
-                labels[line[4]] = labels[line[4]] + 1 if line[4] in labels else 1
-                if labels[line[4]] > count:
+                # 忽略第一行title
+                if first is 0:
+                    first = False
                     continue
-                else:
-                    data_items.append(line)
-        log.info("total data count: {}".format(len(data_items)))
-        log.info("total data label count: {}".format(len(labels)))
-        log.info("total data dict: {}".format(labels))
+                labels[line[-1]] = labels[line[-1]] + 1 if line[-1] in labels else 1
+                # if labels[line[-1]] > single_label_count:
+                #     continue
+                # else:
+                data_items.append(line)
+        # log.info("total data count: {}".format(len(data_items)))
+        # log.info("total data label count: {}".format(len(labels)))
+        # log.info("total data dict: {}".format(labels))
         # print("data dict: {}".format(labels))
 
         # 过滤掉不满count数的记录
         # data_items_filiter = [x for x in data_items if labels[x[4]] >= count]
-        data_items_filiter = filter(lambda x: labels[x[4]] >= count, data_items)
-        log.info("train data count: {}".format(len(data_items_filiter)))
-        return data_items_filiter
+        data_items_filiter = filter(lambda x: labels[x[-1]] >= single_label_count, data_items)
+        data_items_filiter_list = list(data_items_filiter)
+        log.info("train data count: {}".format(len(data_items_filiter_list)))
+        return data_items_filiter_list
 
     def word_tokenizer(self, word):
         """
@@ -164,16 +186,20 @@ class TextClassifier:
         :return:
         """
         stopwords = self.stopwords()
-        tfidf_v = TfidfVectorizer(tokenizer=self.word_tokenizer, stop_words=stopwords)
+        tfidf_v = TfidfVectorizer(tokenizer=self.word_tokenizer, stop_words=stopwords, ngram_range=(1, 1))
         tfidf_words_data = tfidf_v.fit_transform(words).toarray()
+        vocabulary = tfidf_v.vocabulary_
+        joblib.dump(vocabulary, '../model_save/vocabulary.pkl')
+
         return tfidf_words_data
 
-    def make_data_for_network(self):
+    def make_data_for_network(self, limit=None):
         """
         为神经网络训练make数据
+        :param limit:
         :return:
         """
-        X_train, X_test, y_train, y_test = self.make_data(limit=10000)
+        X_train, X_test, y_train, y_test = self.make_data(limit=limit)
         X_vect = len(X_train[0])
         labels_set = list(set(y_train))
         labels_count = len(labels_set)
@@ -182,11 +208,33 @@ class TextClassifier:
 
         training_inputs = [np.reshape(x, (X_vect, 1)) for x in X_train]
         training_results = self.foramt_labels(train_labels_vect)
-        training_data = zip(training_inputs, training_results)
+        training_data = list(zip(training_inputs, training_results))
 
         test_inputs = [np.reshape(x, (X_vect, 1)) for x in X_test]
         test_labels_vect = self.digitization_labels(test_labels_vect)
-        test_data = zip(test_inputs, test_labels_vect)
+        test_data = list(zip(test_inputs, test_labels_vect))
+
+        return training_data, test_data, X_vect, labels_count
+
+    def make_data_for_tensorflow(self, limit=None):
+        """
+
+        :param limit:
+        :return:
+        """
+        X_train, X_test, y_train, y_test = self.make_data(limit=limit)
+        X_vect = len(X_train[0])
+        labels_set = list(set(y_train))
+        labels_count = len(labels_set)
+        train_labels_vect = label_binarize(y_train, classes=labels_set)
+        test_labels_vect = label_binarize(y_test, classes=labels_set)
+
+        # training_inputs = [np.reshape(x, (X_vect, 1)) for x in X_train]
+
+        # test_inputs = [np.reshape(x, (X_vect, 1)) for x in X_test]
+
+        training_data = (X_train, train_labels_vect)
+        test_data = (X_test, test_labels_vect)
 
         return training_data, test_data, X_vect, labels_count
 
@@ -223,18 +271,22 @@ class TextClassifier:
     def make_data(self, train_index=1, label_index=-1, limit=None):
         """
         生成数据
+        :param limit:
         :param label_index:
         :param train_index:
         :return:
         """
         X_data = []
         y_data = []
-        # data_lines = self.read_data_from_csv(self.csv_path)
-        data_lines = self.get_vivo_data(VIVO_CLEARN_DATA, 1500)
+        if self.data_stream == "MED":
+            data_lines = self.get_data(self.csv_path, single_label_count=40)
+        elif self.data_stream == "VIVO":
+            data_lines = self.get_data(VIVO_CLEARN_DATA, single_label_count=500)
+        else:
+            raise TypeError("nonsupport stream")
         if limit and limit < len(data_lines):
             data_lines = data_lines[:limit]
-        label_dict = {}
-        label_int = 0
+
         for line in data_lines:
             if isinstance(train_index, (list, tuple)):
                 train_text = ""
@@ -244,14 +296,9 @@ class TextClassifier:
             else:
                 X_data.append(line[train_index])
             y_data.append(line[label_index])
-            # if line[label_index] not in label_dict:
-            # label_dict[line[label_index]] = label_int
-            # label_int += 1
-            # y_data.append(label_dict[line[label_index]])
+        self.cache = X_data
 
         X_data = self.vectorize(X_data)
-        # with open("label.txt", "w") as f:
-        # json.dump(label_dict, f)
         X_train, X_test, y_train, y_test = train_test_split(np.asarray(X_data), np.asarray(y_data), test_size=0.25)
         return X_train, X_test, y_train, y_test
 
@@ -263,17 +310,31 @@ class TextClassifier:
         :return:
         """
         X_train, X_test, y_train, y_test = self.make_data(train_index=train_index, label_index=label_index)
-        param_grid = {"C": [1e3, 5e3, 1e4, 1e5], "gamma": [0.0001, 0.005, 0.01, 0.1],}
-        # clf = GridSearchCV(SVC(kernel="linear"), param_grid=param_grid)
+        param_grid = {
+            "C": [1e2, 5e2, 1e3, 5e3, 1e4, 5e5, 1e5, 1e6],
+            "gamma": [0.0001, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5],
+        }
+        # clf = GridSearchCV(SVC(kernel="rbf"), param_grid=param_grid)
+        if self.data_stream == "MED":  # medical
 
-        # clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0,
-        # decision_function_shape=None, degree=3, gamma=0.0001, kernel='linear',
-        # max_iter=-1, probability=False, random_state=None, shrinking=True,
-        # tol=0.001, verbose=False)
-
-        clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0, decision_function_shape=None, degree=3,
-                  gamma=0.0001, kernel='rbf', max_iter=-1, probability=False, random_state=None, shrinking=True,
-                  tol=0.001, verbose=False)
+            clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0,
+                      decision_function_shape=None, degree=3, gamma=0.1, kernel='rbf',
+                      max_iter=-1, probability=False, random_state=None, shrinking=True,
+                      tol=0.001, verbose=False)
+        elif self.data_stream == "VIVO":  # VIVO
+            # clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0, decision_function_shape=None, degree=3,
+            #           gamma=0.0001, kernel='rbf', max_iter=-1, probability=False, random_state=None, shrinking=True,
+            #           tol=0.001, verbose=False)
+            # clf = SVC(C=5000.0, cache_size=200, class_weight=None, coef0=0.0,
+            #           decision_function_shape=None, degree=3, gamma=0.0001, kernel='rbf',
+            #           max_iter=-1, probability=False, random_state=None, shrinking=True,
+            #           tol=0.001, verbose=False)
+            clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0,
+                      decision_function_shape=None, degree=3, gamma=0.001, kernel='rbf',
+                      max_iter=-1, probability=False, random_state=None, shrinking=True,
+                      tol=0.001, verbose=False)
+        else:
+            raise TypeError("nonsupport stream")
 
         clf = clf.fit(X_train, y_train)
 
@@ -281,13 +342,17 @@ class TextClassifier:
         # log.info("best_params_:{}".format(clf.best_params_))
         # log.info("best_score_:{}".format(clf.best_score_))
 
-        joblib.dump(clf, '../model_save/svm_model_{}.pkl'.format(train_name))
-        # clf = joblib.load('filename.pkl')
-        # train
-        # clf.fit(X_train, y_train)
-
-        log.info("starting predict...")
+        joblib.dump(clf, '../model_save/svm_model.pkl')
         y_pred = clf.predict(X_test)
+        self.show_result(y_test, y_pred)
+
+    def show_result(self, y_test, y_pred):
+        """
+        展示结果
+        :param y_test:
+        :param y_pred:
+        :return:
+        """
         labels_right = {}
         labels_error = {}
         for index, y in enumerate(y_test):
@@ -297,7 +362,7 @@ class TextClassifier:
                 labels_error[y] = labels_error[y] + 1 if y in labels_error else 1
 
         right_total = 0
-        for k, v in labels_right.iteritems():
+        for k, v in labels_right.items():
             total = v + labels_error[k] if k in labels_error else v
             log.info("{}:{}".format(k, (1.0 * v) / total))
             right_total += v
@@ -308,8 +373,21 @@ class TextClassifier:
         log.info(classification_report(y_test, y_pred))
 
         # log.info("finish")
-        # log.info(confusion_matrix(y_test, y_pred))
-        # log.info("=" * 20 + "svm classifier end" + "=" * 20)
+        log.info(confusion_matrix(y_test, y_pred))
+
+    def pred_new_text(self, text):
+        """
+        分类新的文本
+        :param text:
+        :return:
+        """
+        clf = joblib.load('../model_save/svm_model.pkl')
+        vocabulary = joblib.load('../model_save/vocabulary.pkl')
+        tfidf_v = TfidfVectorizer(tokenizer=self.word_tokenizer, stop_words=self.stopwords(), vocabulary=vocabulary)
+        x = tfidf_v.fit_transform([text]).toarray()
+        y = clf.predict(x)
+
+        return y
 
     def bayes_text_classifier(self, train_index=1, label_index=-1):
         """
@@ -344,11 +422,24 @@ class TextClassifier:
         print(classification_report(y_test, y_pred))
         print(confusion_matrix(y_test, y_pred))
 
+    def result_report(self, result):
+        """
+
+        :param result:
+        :return:
+        """
+        y_test = []
+        y_pred = []
+        for re in result:
+            y_pred.append(re[0])
+            y_test.append(re[1])
+        log.info(classification_report(y_test, y_pred))
+        log.info(confusion_matrix(y_test, y_pred))
+
 
 if __name__ == "__main__":
     textClassifier = TextClassifier()
     textClassifier.svm_text_classifier()
-    # textClassifier.bayes_text_classifier()
-    # textClassifier.read_data_from_csv_ex("error.csv")
-    # textClassifier.clean_vivo_data(CSV_PATH)
+    y = textClassifier.pred_new_text("自觉双侧面下部宽大，影响美观3年余")
+    print(y)
     pass
