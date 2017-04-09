@@ -23,13 +23,13 @@ from sklearn.metrics import confusion_matrix
 from sklearn.externals import joblib
 from sklearn.preprocessing import label_binarize
 
-CSV_PATH = r"../data/features_20170113_185423.csv"
+CSV_PATH = r"../data/features_20170323_175026.csv"
 # CSV_PATH = r"../data/bbgdata2.csv"
 STOPWORD_PATH = "../config/stopword.txt"
 FEATURES = 1000
 VECTORIZER = "TFIDF"  # HASH
 VIVO_CLEARN_DATA = r"../data/sample0.csv"
-DATA_STREAM = "VIVO"  # MED/VIVO
+DATA_STREAM = "MED"  # MED/VIVO
 
 train_name = time.time()
 logging.basicConfig(filename="../logs/text_classifier_{}.log".format(train_name), level=logging.INFO,
@@ -216,13 +216,13 @@ class TextClassifier:
 
         return training_data, test_data, X_vect, labels_count
 
-    def make_data_for_tensorflow(self, limit=None, single_label_count=500):
+    def make_data_for_tensorflow(self, limit=None):
         """
 
         :param limit:
         :return:
         """
-        X_train, X_test, y_train, y_test = self.make_data(limit=limit, single_label_count=single_label_count)
+        X_train, X_test, y_train, y_test = self.make_data(limit=limit)
         X_vect = len(X_train[0])
         labels_set = list(set(y_train))
         labels_count = len(labels_set)
@@ -440,6 +440,6 @@ class TextClassifier:
 if __name__ == "__main__":
     textClassifier = TextClassifier()
     textClassifier.svm_text_classifier()
-    y = textClassifier.pred_new_text("感觉X9plus电量不抗用。 感觉X9plus，电量不抗用啊。有没有什么方法测试一下电池抗不抗用")
+    y = textClassifier.pred_new_text("自觉双侧面下部宽大，影响美观3年余")
     print(y)
     pass
