@@ -186,7 +186,7 @@ class TextClassifier:
         :return:
         """
         stopwords = self.stopwords()
-        tfidf_v = TfidfVectorizer(tokenizer=self.word_tokenizer, stop_words=stopwords, ngram_range=(2, 2))
+        tfidf_v = TfidfVectorizer(tokenizer=self.word_tokenizer, stop_words=stopwords)
         tfidf_words_data = tfidf_v.fit_transform(words).toarray()
         vocabulary = tfidf_v.vocabulary_
         joblib.dump(vocabulary, '../model_save/vocabulary.pkl')

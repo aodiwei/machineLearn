@@ -24,7 +24,7 @@ from sklearn.externals import joblib
 from sklearn.preprocessing import label_binarize
 
 # CSV_PATH = r"F:\17MedPro\workspace\medstdy\api\python\data\features_20170121_014219.csv"
-CSV_PATH = r"../data/bbgdata2.csv"
+CSV_PATH = r"../data/vivo.csv"
 STOPWORD_PATH = "../config/stopword.txt"
 FEATURES = 1000
 VECTORIZER = "TFIDF"  # HASH
@@ -173,7 +173,7 @@ class TextClassifier:
         为神经网络训练make数据
         :return:
         """
-        X_train, X_test, y_train, y_test = self.make_data(limit=10000)
+        X_train, X_test, y_train, y_test = self.make_data(limit=1000)
         X_vect = len(X_train[0])
         labels_set = list(set(y_train))
         labels_count = len(labels_set)
@@ -230,7 +230,7 @@ class TextClassifier:
         X_data = []
         y_data = []
         # data_lines = self.read_data_from_csv(self.csv_path)
-        data_lines = self.get_vivo_data(VIVO_CLEARN_DATA, 1500)
+        data_lines = self.get_vivo_data(VIVO_CLEARN_DATA, 100)
         if limit and limit < len(data_lines):
             data_lines = data_lines[:limit]
         label_dict = {}
@@ -264,20 +264,20 @@ class TextClassifier:
         """
         X_train, X_test, y_train, y_test = self.make_data(train_index=train_index, label_index=label_index)
         param_grid = {"C": [1e3, 5e3, 1e4, 1e5], "gamma": [0.0001, 0.005, 0.01, 0.1],}
-        # clf = GridSearchCV(SVC(kernel="linear"), param_grid=param_grid)
+        clf = GridSearchCV(SVC(kernel="rbf"), param_grid=param_grid)
 
         # clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0,
         # decision_function_shape=None, degree=3, gamma=0.0001, kernel='linear',
         # max_iter=-1, probability=False, random_state=None, shrinking=True,
         # tol=0.001, verbose=False)
 
-        clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0, decision_function_shape=None, degree=3,
-                  gamma=0.0001, kernel='rbf', max_iter=-1, probability=False, random_state=None, shrinking=True,
-                  tol=0.001, verbose=False)
+        # clf = SVC(C=1000.0, cache_size=200, class_weight=None, coef0=0.0, decision_function_shape=None, degree=3,
+        #           gamma=0.0001, kernel='rbf', max_iter=-1, probability=False, random_state=None, shrinking=True,
+        #           tol=0.001, verbose=False)
 
         clf = clf.fit(X_train, y_train)
 
-        # log.info("best_estimator_:{}".format(clf.best_estimator_))
+        log.info("best_estimator_:{}".format(clf.best_estimator_))
         # log.info("best_params_:{}".format(clf.best_params_))
         # log.info("best_score_:{}".format(clf.best_score_))
 
